@@ -18,14 +18,11 @@
 
 package org.dasein.util;
 
-import org.dasein.util.tasks.DaseinUtilTasks;
-
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
@@ -43,6 +40,14 @@ public class JitCollection<T> implements Collection<T> {
     @SuppressWarnings("unused")
     public JitCollection(@Nonnull Jiterator<T> src) {
         this(src, "Unknown");
+    }
+
+    public JitCollection(@Nonnull Jiterator<T> src, @Nonnull String nom) {
+        source = src;
+        size = -1;
+        list  = new ArrayList<T>();
+
+        DaseinUtilTasks.submit(new JitCollectionAddTask());
     }
 
     private class JitCollectionAddTask implements Runnable {
@@ -86,64 +91,6 @@ public class JitCollection<T> implements Collection<T> {
                 source.notifyAll();
             }
         }
-    }
-    
-    public JitCollection(@Nonnull Jiterator<T> src, @Nonnull String nom) {
-        source = src;
-        size = -1;
-        list  = new ArrayList<T>();
-
-        if (DaseinUtilProperties.isTaskSystemEnabled()) {
-            DaseinUtilTasks.submit(new JitCollectionAddTask());
-            return;
-        }
-
-        Thread t = new Thread() {
-            public void run() {
-                try {
-                    for( T item : source ) {
-                        synchronized( source ) {
-                            if( complete ) {
-                                return;
-                            }
-                            list.add(item);
-                            source.notifyAll();
-                        }
-                    }
-                }
-                catch( JiteratorLoadException e ) {
-                    synchronized( source ) {
-                        error = e.getCause();
-                        complete = true;
-                        source.notifyAll();
-                    }
-                    toAdd = null;
-                    return;
-                }
-                catch( Throwable t ) {
-                    synchronized( source ) {
-                        error = t;
-                        complete = true;
-                        source.notifyAll();
-                    }
-                    toAdd = null;
-                    return;
-                }
-                synchronized( source ) {
-                    if( toAdd != null ) {
-                        list.addAll(toAdd);
-                        toAdd = null;
-                    }
-                    complete = true;
-                    source.notifyAll();
-                }
-            }
-        };
-        
-        t.setDaemon(true);
-        t.setName("Jiterator Parser: " + nom + " [" + new Date() + "]");
-        t.setPriority(Thread.NORM_PRIORITY-1);
-        t.start();
     }
 
     @Override
@@ -370,50 +317,7 @@ public class JitCollection<T> implements Collection<T> {
         }
 
         final Jiterator<T> it = new Jiterator<T>();
-
-        if (DaseinUtilProperties.isTaskSystemEnabled()) {
-            DaseinUtilTasks.submit(new JitCollectionJiteratorIteratorTask(it));
-            return it;
-        }
-
-        Thread t = new Thread() {
-            public void run() {
-                int idx = 0;
-                
-                synchronized( source ) {
-                    try {
-                        while( !complete ) {
-                            if( idx < list.size() ) {
-                                it.push(list.get(idx++));
-                            }
-                            else {
-                                try { source.wait(100L); }
-                                catch( InterruptedException e ) { /* ignore */ }
-                            }
-                        }
-                        while( idx < list.size() ) {
-                            it.push(list.get(idx++));
-                        }
-                        if( error != null ) {
-                            throw new JiteratorLoadException(error);
-                        }
-                        it.complete();
-                    }
-                    catch( JiteratorLoadException e ) {
-                        error = e.getCause();
-                        it.setLoadException(e);
-                    }
-                    catch( Throwable t ) {
-                        error = t.getCause();
-                        it.setLoadException(error == null ? new JiteratorLoadException(t) : new JiteratorLoadException(error));                        
-                    }
-                }
-            }
-        };
-        
-        t.setDaemon(true);
-        t.setName("Jiterator iterator");
-        t.start();
+        DaseinUtilTasks.submit(new JitCollectionJiteratorIteratorTask(it));
         return it;
     }
 

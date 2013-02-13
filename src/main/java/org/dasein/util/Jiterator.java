@@ -20,7 +20,6 @@ package org.dasein.util;
 
 import com.sun.istack.internal.Nullable;
 import org.apache.log4j.Logger;
-import org.dasein.util.tasks.DaseinUtilTasks;
 import org.dasein.util.uom.time.Millisecond;
 import org.dasein.util.uom.time.TimePeriod;
 
@@ -54,7 +53,7 @@ import java.util.concurrent.TimeoutException;
 public class Jiterator<T> implements Iterator<T>, Iterable<T> {
     static private final Logger logger = Logger.getLogger(Jiterator.class);
     static private final Random idGenerator = new Random();
-    
+
     private final JiteratorFilter<T> filter;
     private final String             jiteratorId;
     private volatile long            lastTouch;
@@ -63,7 +62,6 @@ public class Jiterator<T> implements Iterator<T>, Iterable<T> {
     private final String             name;
     private TimePeriod<Millisecond>  timeout;
     private ArrayList<T>             waiting;
-    
     private transient boolean nexting = false;
     
     /**
@@ -150,22 +148,7 @@ public class Jiterator<T> implements Iterator<T>, Iterable<T> {
             this.timeout = new TimePeriod<Millisecond>(CalendarWrapper.MINUTE * 10L, TimePeriod.MILLISECOND);
         }
         if( starterList != null ) {
-            final Collection<T> flist = starterList;
-
-            if (DaseinUtilProperties.isTaskSystemEnabled()) {
-                DaseinUtilTasks.submit(new JiteratorTask(flist));
-                return;
-            }
-            Thread t = new Thread() {
-                public void run() {
-                    for( T item : flist ) {
-                        push(item);
-                    }
-                }
-            };
-            t.setName("Jiterator Loader (" + name + ")");
-            t.setDaemon(true);
-            t.start();
+            DaseinUtilTasks.submit(new JiteratorTask(starterList));
         }
     }
     /**

@@ -1,0 +1,9 @@
+<ehcache name="ConcurrentMultiEhcacheManager">
+    <defaultCache maxEntriesLocalHeap="100000"
+                  eternal="false"
+                  timeToIdleSeconds="15"
+                  timeToLiveSeconds="60"
+                  memoryStoreEvictionPolicy="LRU">
+        <persistence strategy="none" />
+    </defaultCache>
+</ehcache>

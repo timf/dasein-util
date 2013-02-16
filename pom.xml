@@ -22,7 +22,7 @@
 
   <groupId>org.dasein</groupId>
   <artifactId>dasein-util</artifactId>
-  <version>2013.01-SNAPSHOT</version>
+  <version>2013.03-SNAPSHOT</version>
 
   <name>dasein-util</name>
   <description>
@@ -66,31 +66,31 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-        <groupId>log4j</groupId>
-        <artifactId>log4j</artifactId>
-        <version>1.2.16</version>
-        <scope>compile</scope>
-        <optional>false</optional>
-    </dependency>    
+      <groupId>log4j</groupId>
+      <artifactId>log4j</artifactId>
+      <version>1.2.16</version>
+    </dependency>
     <dependency>
       <groupId>javax.servlet</groupId>
       <artifactId>servlet-api</artifactId>
       <version>2.5</version>
-      <scope>compile</scope>
-    </dependency>    
+    </dependency>
     <dependency>
       <groupId>javax.servlet</groupId>
       <artifactId>jsp-api</artifactId>
       <version>2.0</version>
-      <scope>compile</scope>
     </dependency>
-      <dependency>
-          <groupId>com.google.code.findbugs</groupId>
-          <artifactId>jsr305</artifactId>
-          <version>2.0.0</version>
-          <type>jar</type>
-          <scope>compile</scope>
-      </dependency>
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
+      <version>2.0.0</version>
+    </dependency>
+    <dependency>
+      <groupId>net.sf.ehcache</groupId>
+      <artifactId>ehcache-core</artifactId>
+      <version>2.6.3</version>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
 
   <build>

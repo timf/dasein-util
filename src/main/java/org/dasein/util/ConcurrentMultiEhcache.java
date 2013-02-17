@@ -33,7 +33,6 @@ import java.util.concurrent.locks.Lock;
 
 import net.sf.ehcache.CacheManager;
 import net.sf.ehcache.Ehcache;
-import net.sf.ehcache.Element;
 import net.sf.ehcache.Statistics;
 import net.sf.ehcache.management.ManagementService;
 
@@ -43,7 +42,8 @@ import javax.annotation.Nonnull;
  * <p>
  *   A concurrent multi-cache caches objects along multiple
  *   unique keys. You provide the list of unique keys and then this object will
- *   manage the concurrent access of multiple threads into the cache.
+ *   manage the concurrent access of multiple threads into the cache. Loading
+ *   is locked per PK key-value and not across the entire cache.
  * </p>
  * <p>
  *   This class is backed up by multiple {@link net.sf.ehcache.Ehcache} instances (one for
@@ -261,6 +261,7 @@ public class ConcurrentMultiEhcache<T> extends ConcurrentMultiCache<T> {
         if (item != null) {
             // Cache hit.
             if( item instanceof CachedItem ) {
+                // respect this contract for now, it may interfere with ehcache settings
                 if( ((CachedItem)item).isValidForCache() ) {
                     return item;
                 } else {
@@ -277,12 +278,16 @@ public class ConcurrentMultiEhcache<T> extends ConcurrentMultiCache<T> {
         }
 
         // Cache miss.
-
+        //
         // First we get a lock per-ID-value of the object being loaded.
+        //
         // This is stampede protection: many simultaneous cache-misses on the
         // same value can otherwise cause many loaders to go off to get the
         // item from the definitive source. That's unecessary work and extra
         // time spent waiting by each of the threads involved in the cache-miss.
+        //
+        // Locking per PK key-value here instead of per-object-type is an essential
+        // difference vs. ConcurrentMultiCache (it's not just because of Ehcache).
         final Lock lock = wrapper.getLoadingLock(val);
 
         // Could add a timeout here ('tryLock' method), even a configurable one.
@@ -292,7 +297,7 @@ public class ConcurrentMultiEhcache<T> extends ConcurrentMultiCache<T> {
             // Did another thread just load this in the meantime?
             item = wrapper.getItem(val);
             if (item != null) {
-                return null;
+                return item;
             }
 
             item = loader.load(args);
@@ -300,7 +305,7 @@ public class ConcurrentMultiEhcache<T> extends ConcurrentMultiCache<T> {
                 return null;
             }
 
-            wrapper.getCache().put(new Element(val, item));
+            wrapper.put(val, item);
             return item;
         } finally {
             lock.unlock();
@@ -379,6 +384,16 @@ public class ConcurrentMultiEhcache<T> extends ConcurrentMultiCache<T> {
         }
     }
 
+    @Override
+    public T cache(T item) {
+        HashMap<String,Object> keys = getKeys(item);
+        for(String key : order) {
+            EhcacheWrapper<T> wrapper = caches.get(key);
+            wrapper.put(keys.get(key), item);
+        }
+        return item;
+    }
+
     /**
      * Releases the specified item from the cache. If it is still in the persistent
      * store, it will be retrieved back into the cache on next query. Otherwise,
@@ -389,7 +404,7 @@ public class ConcurrentMultiEhcache<T> extends ConcurrentMultiCache<T> {
         HashMap<String,Object> keys = getKeys(item);
         for(String key : order) {
             EhcacheWrapper<T> wrapper = caches.get(key);
-            wrapper.getCache().remove(keys.get(key));
+            wrapper.remove(keys.get(key));
         }
     }
 
@@ -402,7 +417,7 @@ public class ConcurrentMultiEhcache<T> extends ConcurrentMultiCache<T> {
      */
     public void releaseAll() {
         for (EhcacheWrapper<T> wrapper: caches.values()) {
-            wrapper.getCache().removeAll();
+            wrapper.removeAll();
         }
     }
 

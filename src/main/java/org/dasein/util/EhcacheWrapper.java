@@ -17,11 +17,13 @@
 
 package org.dasein.util;
 
+import net.sf.ehcache.CacheException;
 import net.sf.ehcache.Ehcache;
 import net.sf.ehcache.Element;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.math.BigDecimal;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -47,6 +49,10 @@ public class EhcacheWrapper<T> {
         loadingLocks = new ConcurrentHashMap<Object, ReentrantLock>();
     }
 
+    /**
+     * @param key unique ID
+     * @return item or null if not present
+     */
     @Nullable
     public <T> T getItem(Object key) {
         final Element e = cache.get(key);
@@ -56,9 +62,47 @@ public class EhcacheWrapper<T> {
         return null;
     }
 
-    @Nonnull
-    public Ehcache getCache() {
-        return cache;
+    /**
+     * @param key key
+     * @param item An object. If Serializable it can fully participate in replication and the DiskStore.
+     * @throws IllegalStateException    if the cache is not {@link net.sf.ehcache.Status#STATUS_ALIVE}
+     throws IllegalArgumentException if key/item are null
+     * @throws CacheException other issue
+     */
+    public void put(Object key, T item) throws IllegalArgumentException, IllegalStateException, CacheException {
+        if (key == null) {
+            throw new IllegalArgumentException("key is missing");
+        }
+        if (item == null) {
+            throw new IllegalArgumentException("item is missing");
+        }
+        if( key instanceof BigDecimal) {
+            key = Long.valueOf(((Number) key).longValue());
+        }
+        cache.put(new Element(key, item));
+    }
+
+    /**
+     * @param key key
+     * @return true if the element was removed, false if it was not found in the cache or if key is null
+     * @throws IllegalStateException if the cache is not {@link net.sf.ehcache.Status#STATUS_ALIVE}
+     */
+    public boolean remove(Object key) throws IllegalStateException {
+        if (key == null) {
+            return false;
+        }
+        if( key instanceof BigDecimal) {
+            key = Long.valueOf(((Number) key).longValue());
+        }
+        return cache.remove(key);
+    }
+
+    /**
+     * Removes all cached items.
+     * @throws IllegalStateException if the cache is not {@link net.sf.ehcache.Status#STATUS_ALIVE}
+     */
+    public void removeAll() throws IllegalStateException {
+        cache.removeAll();
     }
 
     /**
